@@ -1,0 +1,15 @@
+[Unit]
+Description=Kafka
+Before=
+Requires=zookeeper.service
+After=network.target
+
+[Service]
+User=confluent
+ExecStart=/usr/bin/kafka-server-start /etc/kafka/server.properties
+ExecStop=/usr/bin/kafka-server-stop
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

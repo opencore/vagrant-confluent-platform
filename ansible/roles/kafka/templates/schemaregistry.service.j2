@@ -1,0 +1,15 @@
+[Unit]
+Description=Schema Registry
+Before=
+Requires=kafka.service
+After=network.target
+
+[Service]
+User=confluent
+ExecStart=/usr/bin/schema-registry-start /etc/schema-registry/schema-registry.properties
+ExecStop=/usr/bin/schema-registry--stop
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

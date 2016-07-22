@@ -1,0 +1,113 @@
+# === Install Java Development Kit
+# Debian
+- name: Benötigte Pakete installieren
+  apt: name=openjdk-8-jdk  update_cache=yes state=present
+  when: ansible_os_family == 'Debian'
+
+# RedHat
+- name: Benötigte Pakete installieren
+  yum: name=java-1.8.0-openjdk update_cache=yes state=present
+  when: ansible_os_family == 'RedHat'
+# ===
+
+- name: Gruppe für Kafka User erstellen
+  group: name={{ item }} state=present
+  with_items:
+    - confluent
+
+- name: User anlegen
+  user: name={{ item }} group={{ item }}
+  with_items:
+    - confluent
+
+# ===Install key, repository and confluent platform===
+# Debian
+- name: Install key for confluent repository
+  apt_key: state=present url=http://packages.confluent.io/deb/3.0/archive.key
+  when: ansible_os_family == 'Debian'
+
+- name: Install confluent repo
+  apt_repository: repo="deb [arch=amd64] http://packages.confluent.io/deb/3.0 stable main" state=present
+  when: ansible_os_family == 'Debian'
+
+- name: Install confluent platform
+  apt: name=confluent-platform-2.11 state=present update_cache=yes
+  when: ansible_os_family == 'Debian'
+
+# RedHat
+- name: Install key for confluent repository
+  rpm_key:  state=present key=http://packages.confluent.io/deb/3.0/archive.key
+  when: ansible_os_family == 'RedHat'
+
+- name: Install confluent repo
+  template: src=confluent.repo.j2 dest=/etc/yum.repos.d/confluent.repo owner=root group=root mode=0755
+  when: ansible_os_family == 'RedHat'
+
+- name: Install confluent platform
+  yum: name=confluent-platform-2.11 state=present update_cache=yes
+  when: ansible_os_family == 'RedHat'
+# ===
+
+
+- name: Ensure correct permissions on directories
+  file: path={{ item.path }} state=directory owner={{ item.owner }} group={{ item.owner }} mode=0755 recurse=yes
+  with_items:
+    - { path: "/etc/kafka", owner: "confluent" }
+    - { path: "/var/log/kafka", owner: "confluent" }
+    - { path: "/var/lib/kafka", owner: "confluent" }
+    - { path: "/var/lib/zookeeper", owner: "confluent" }
+    - { path: "/etc/schema-registry", owner: "confluent" }
+    - { path: "/etc/confluent-control-center", owner: "confluent" }
+
+- name: Create services
+  template: src={{ item.src }} dest={{ item.dest }} owner=root group=root mode=0755
+  with_items:
+    - { src: "zookeeper.service.j2", dest: "/etc/systemd/system/zookeeper.service", owner: "root" }
+    - { src: "kafka.service.j2", dest: "/etc/systemd/system/kafka.service", owner: "root" }
+    - { src: "schemaregistry.service.j2", dest: "/etc/systemd/system/schemaregistry.service", owner: "root" }
+    - { src: "confluent-control-center.service.j2", dest: "/etc/systemd/system/confluent-control-center.service", owner: "root" }
+  notify:
+    reload systemd
+
+- name: Template config files
+  template: src={{ item.src }} dest={{ item.dest }} owner={{ item.owner }} group={{ item.owner }} mode=0755
+  with_items:
+  - { src: "server.properties.j2", dest: "/etc/kafka/server.properties", owner: "confluent" }
+  - { src: "log4j.properties.j2", dest: "/etc/kafka/log4j.properties", owner: "confluent" }
+
+- name: Template ccc config files
+  template: src="control-center.properties.j2" dest="/etc/confluent-control-center/control-center.properties" owner="confluent" group="confluent" mode=0755
+
+- name: Template schema registry config files
+  template: src="schema-registry.properties.j2" dest="/etc/schema-registry/schema-registry.properties" owner="confluent" group="confluent" mode=0755
+
+- name: Template zookeeper config files
+  template: src={{ item.src }} dest={{ item.dest }} owner={{ item.owner }} group={{ item.owner }} mode=0755
+  with_items:
+  - { src: "zookeeper.properties.j2", dest: "/etc/kafka/zookeeper.properties", owner: "confluent" }
+  - { src: "myid.j2", dest: "/var/lib/zookeeper/myid", owner: "confluent" }
+
+# Start all services in order
+- name: Start Zookeeper
+  service: name=zookeeper.service state=started enabled=yes
+
+- name: Wait for Zookeeper to come up
+  wait_for: port=2181 delay=2
+
+- name: Start Kafka
+  service: name=kafka.service state=restarted enabled=yes
+
+- name: Wait for Kafka to come up
+  wait_for: port=9092 delay=2
+
+- name: Start Schema Registry
+  service: name=schemaregistry.service state=started enabled=yes
+
+- name: Wait for Schema Registry to come up
+  wait_for: port=8081 delay=2
+
+- name: Start Confluent Control Center
+  service: name=confluent-control-center.service state=started enabled=yes
+
+- name: Wait for Confluent Control Center to come up
+  wait_for: port=9021 delay=2
