@@ -1,21 +1,21 @@
 # === Install Java Development Kit
 # Debian
-- name: Benötigte Pakete installieren
+- name: Install necessary packages
   apt: name=openjdk-8-jdk  update_cache=yes state=present
   when: ansible_os_family == 'Debian'
 
 # RedHat
-- name: Benötigte Pakete installieren
+- name: Install necessary packages
   yum: name=java-1.8.0-openjdk update_cache=yes state=present
   when: ansible_os_family == 'RedHat'
 # ===
 
-- name: Gruppe für Kafka User erstellen
+- name: Create group for Kafka user
   group: name={{ item }} state=present
   with_items:
     - confluent
 
-- name: User anlegen
+- name: Create user
   user: name={{ item }} group={{ item }}
   with_items:
     - confluent
@@ -48,7 +48,6 @@
   when: ansible_os_family == 'RedHat'
 # ===
 
-
 - name: Ensure correct permissions on directories
   file: path={{ item.path }} state=directory owner={{ item.owner }} group={{ item.owner }} mode=0755 recurse=yes
   with_items:
@@ -75,13 +74,13 @@
   - { src: "server.properties.j2", dest: "/etc/kafka/server.properties", owner: "confluent" }
   - { src: "log4j.properties.j2", dest: "/etc/kafka/log4j.properties", owner: "confluent" }
 
-- name: Template ccc config files
+- name: Template config files for confluent control center
   template: src="control-center.properties.j2" dest="/etc/confluent-control-center/control-center.properties" owner="confluent" group="confluent" mode=0755
 
-- name: Template schema registry config files
+- name: Template config files for schema registry
   template: src="schema-registry.properties.j2" dest="/etc/schema-registry/schema-registry.properties" owner="confluent" group="confluent" mode=0755
 
-- name: Template zookeeper config files
+- name: Template config files for zookeeper
   template: src={{ item.src }} dest={{ item.dest }} owner={{ item.owner }} group={{ item.owner }} mode=0755
   with_items:
   - { src: "zookeeper.properties.j2", dest: "/etc/kafka/zookeeper.properties", owner: "confluent" }
