@@ -6,8 +6,6 @@ VAGRANTFILE_API_VERSION = "2"
 
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   config.vm.box = "ubuntu/wily64"
-  # If you want to use this box with the Kafka Connect Twitter input, please use the following base box instead
-  #config.vm.box = "ubuntu/vivid64"
 
   # Configure forwarded ports
   config.vm.network "forwarded_port", guest: 2181, host: 2181 # Zookeeper
